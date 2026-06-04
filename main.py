@@ -7,6 +7,8 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import pipeline
 
+SIMILARITY_THRESHOLD = 0.55
+ESCALATION_CONFIDENCE = 0.90
 
 class StudentSupportAI:
     def __init__(self, knowledge_base_file="knowledge_base.csv"):
@@ -75,9 +77,19 @@ class StudentSupportAI:
     def find_best_answer(self, user_question):
         user_embedding = self.embedding_model.encode([user_question])
 
-        similarities = cosine_similarity(user_embedding, self.question_embeddings)
+        similarities = cosine_similarity(
+            user_embedding,
+            self.question_embeddings
+        )
+
         best_index = int(np.argmax(similarities))
         best_score = float(similarities[0][best_index])
+
+        if best_score < SIMILARITY_THRESHOLD:
+            return (
+                "Sorry, I could not find a revelant answer, please contact an advisor.",
+                best_score
+            )
 
         return self.answers[best_index], best_score
 
@@ -89,29 +101,44 @@ class StudentSupportAI:
 
         return label, score
 
-    def should_escalate(self, sentiment_label, confidence_score):
-        return sentiment_label == "NEGATIVE" and confidence_score > 0.90
+    def should_escalate(self, user_text, sentiment_label, confidence_score):
+        user_text = user_text.lower()
+
+        return (
+            sentiment_label == "NEGATIVE"
+            and confidence_score > ESCALATION_CONFIDENCE         
+        )
 
     def answer_user(self, user_input):
-        sentiment_label, confidence_score = self.analyze_sentiment(user_input)
-        answer, similarity_score = self.find_best_answer(user_input)
+        
 
-        self.chat_history.append({
-            "user": user_input,
-            "sentiment": sentiment_label,
-            "confidence": confidence_score,
-            "answer": answer,
-            "similarity": similarity_score
-        })
+        if(user_input.strip() =="-1"):
+            for history in self.chat_history:
+                print("\n--- History Entry ---")
+                print(f"User: {history['user']}")
+                print(f"Sentiment: {history['sentiment']} ({history['confidence']:.2f})")
+                print(f"Answer: {history['answer']}")
+                print(f"Similarity: {history['similarity']:.2f}")
+                print("---------------------\n")
+        else:
+            sentiment_label, confidence_score = self.analyze_sentiment(user_input)
+            answer, similarity_score = self.find_best_answer(user_input)
 
-        print(f"Sentiment: {sentiment_label} ({confidence_score:.2f})")
+            self.chat_history.append({
+                "user": user_input,
+                "sentiment": sentiment_label,
+                "confidence": confidence_score,
+                "answer": answer,
+                "similarity": similarity_score
+            })
+            print(f"Sentiment: {sentiment_label} ({confidence_score:.2f})")
 
-        if self.should_escalate(sentiment_label, confidence_score):
-            print("Recommended escalation: Contact human advisor.")
+            if self.should_escalate(user_input, sentiment_label, confidence_score):
+                print("Recommended escalation: Contact human advisor.")
 
-        print(f"Answer: {answer}")
-        print(f"Similarity score: {similarity_score:.2f}")
-        print()
+            print(f"Answer: {answer}")
+            print(f"Similarity score: {similarity_score:.2f}")
+            print()
 
     def run(self):
         print("Welcome to Student Support AI")
@@ -119,6 +146,7 @@ class StudentSupportAI:
         print()
 
         while True:
+            print("Type '-1' to see the entire history.")
             user_input = input("You: ").strip()
 
             if user_input.lower() == "quit":
