@@ -87,7 +87,7 @@ class StudentSupportAI:
 
         if best_score < SIMILARITY_THRESHOLD:
             return (
-                "Sorry, I could not find a revelant answer, please contact an advisor.",
+                "Sorry, I could not find a relevant answer, please contact an advisor.",
                 best_score
             )
 
@@ -134,7 +134,7 @@ class StudentSupportAI:
             print(f"Sentiment: {sentiment_label} ({confidence_score:.2f})")
 
             if self.should_escalate(user_input, sentiment_label, confidence_score):
-                print("Recommended escalation: Contact human advisor.")
+                print("Recommended escalation: Contact an advisor.")
 
             print(f"Answer: {answer}")
             print(f"Similarity score: {similarity_score:.2f}")
